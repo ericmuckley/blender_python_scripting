@@ -32,6 +32,13 @@ blender --background --python blender_molecules00.py
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False, confirm=False)
 
+# delete all materials
+for material in bpy.data.materials:
+    material.user_clear()
+    bpy.data.materials.remove(material)
+
+
+
 # add light source
 bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, 2, 2))
 bpy.context.object.name = 'lamp'
@@ -71,7 +78,7 @@ bpy.context.scene.frame_set(current_kf)
 x, y, z = 0, 0, 0
 
 # set number of gas particles
-gas_particle_num = 10
+gas_particle_num = 50
 
 
 # loop over each gas particle
@@ -79,8 +86,7 @@ for i in range(gas_particle_num):
 
     # create gas particle
     bpy.ops.mesh.primitive_uv_sphere_add(
-        location=np.random.random(3),
-        #velocity=(0, 0, 0.01),
+        location=np.random.random(3)-0.5,
         radius=0.1)
 
     # name particle
@@ -96,6 +102,75 @@ particles = [p for p in bpy.data.objects if p.name.startswith('particle')]
 
 # initialize keyframes for each particle
 #[p.keyframe_insert(data_path='location', frame=current_kf) for p in particles]
+
+
+
+#bpy.context.scene.rigidbody_world.constraints = bpy.data.collections["RigidBodyWorld"]
+
+
+# ---------------------- Create bounding box --------------------------------
+
+
+
+
+
+def boundary_plane(size, loc=(0, 0, 0), rot=(0, 0, 0),
+    name=None, rigid_body_type='PASSIVE'):
+    """Create bounding plane for rigid body simulation."""
+    # create plane
+    bpy.ops.mesh.primitive_plane_add(
+        size=size, location=loc, rotation=rot)
+    # name it
+    if name:
+        bpy.context.object.name = name
+    # make it a rigid object
+    bpy.ops.rigidbody.objects_add()
+    bpy.context.object.rigid_body.type = rigid_body_type
+    
+
+
+# create new transparent material 
+mat_transparent = bpy.data.materials.new(name='transparent')
+#mat_transparent.alpha = (0, 0 ,0)
+#current.data.materials.append(mat)
+
+
+plane_size = 3
+
+plane_locs = (
+    (0, 0, -plane_size/2), (0, 0, plane_size/2),
+    (-plane_size/2, 0, 0), (plane_size/2, 0, 0),
+    (0, -plane_size/2, 0), (0, plane_size/2, 0))
+    
+plane_rots = (
+    (0, 0, 0), (0, 0, 0),
+    (0, np.pi/2, 0), (0, np.pi/2, 0),
+    (np.pi/2, 0, 0), (np.pi/2, 0, 0))
+
+plane_names = (
+    'plane_low_z', 'plane_high_z',
+    'plane_low_x', 'plane_high_x',
+    'plane_low_y', 'plane_high_y',)
+
+
+for p in range(len(plane_locs)):
+    boundary_plane(plane_size,
+        loc=plane_locs[p],
+        rot=plane_rots[p],
+        name=plane_names[p])
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 '''
