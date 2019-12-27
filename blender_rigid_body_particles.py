@@ -123,7 +123,7 @@ for i in range(gas_particle_num):
 
     # create gas particle
     bpy.ops.mesh.primitive_uv_sphere_add(
-        location=(np.random.random(3)-0.5)/10, radius=0.05)
+        location=(np.random.random(3)-0.5)/20, radius=0.05)
     # name it
     bpy.context.object.name = 'particle_' + str(i).zfill(3)
     # set smooth rendering
@@ -177,6 +177,14 @@ for p in range(len(plane_locs)):
 
 
 
+
+"""
+- add starting velocities
+- add shadlowless-material
+- add plume of different shadowless material
+- extend range of keyframes
+- add depth of field
+"""
 
 
 '''
