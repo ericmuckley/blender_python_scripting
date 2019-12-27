@@ -60,6 +60,19 @@ def boundary_plane(size, loc=(0, 0, 0), rot=(0, 0, 0),
 
 
 
+def make_transparent_material(name='transparent'):
+    """Create a transparent material."""
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    mat.shadow_method = 'NONE'
+    mat.blend_method = 'HASHED'
+    mat.diffuse_color = (0, 0, 0, 0)
+    mat.node_tree.nodes["Principled BSDF"].inputs[18].default_value = 0
+    return mat
+
+
+
+
 # ---------------------- INITIALIZE ENVIRONMENT ----------------------
 
 delete_all_objects_and_materials()
@@ -69,7 +82,7 @@ bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, 2, 10))
 bpy.context.object.name = 'lamp'
 
 # add camera
-cam_pos = [0, 0, 30]
+cam_pos = [0, 0, 10]
 cam_rot = [0, 0, 0]
 bpy.ops.object.camera_add(location=cam_pos, rotation=cam_rot)
 bpy.context.object.name = 'cam'
@@ -89,7 +102,7 @@ bpy.context.scene.gravity = [0, 0, 0]
 
 # set start and end keyframes
 bpy.context.scene.frame_start = 0
-bpy.context.scene.frame_end = 600
+bpy.context.scene.frame_end = 250
 
 # for animation, track current frame, specify desired number of key frames
 current_kf = bpy.context.scene.frame_start
@@ -103,14 +116,14 @@ bpy.context.scene.frame_set(current_kf)
 x, y, z = 0, 0, 0
 
 # set number of gas particles
-gas_particle_num = 100
+gas_particle_num = 50
 
 # loop over each gas particle
 for i in range(gas_particle_num):
 
     # create gas particle
     bpy.ops.mesh.primitive_uv_sphere_add(
-        location=(np.random.random(3)-0.5)/2, radius=0.1)
+        location=(np.random.random(3)-0.5)/10, radius=0.05)
     # name it
     bpy.context.object.name = 'particle_' + str(i).zfill(3)
     # set smooth rendering
@@ -120,7 +133,9 @@ for i in range(gas_particle_num):
     # make collisions elastic
     bpy.context.object.rigid_body.restitution = 1
     bpy.context.object.rigid_body.friction = 0
+    #bpy.context.object.frame_end = 600
 
+    #bpy.context.object.rigid_body.collision_shape = 'SPHERE'
 
 
 
@@ -136,14 +151,9 @@ particles = [p for p in bpy.data.objects if p.name.startswith('particle')]
 # ---------------------- Create bounding box --------------------------------
 
 
-# create new transparent material 
-mat = bpy.data.materials.new(name='transparent')
-#mat.use_nodes = True
-#bpy.context.object.active_material.diffuse_color = (0.8, 0.8, 0.8, 0)
-mat.diffuse_color = (0, 0, 0, 0)
-mat.shadow_method = 'NONE'
 
 
+mat = make_transparent_material()
 
 plane_size = 3
 
