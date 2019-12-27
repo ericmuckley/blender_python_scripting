@@ -33,9 +33,9 @@ def delete_all_objects_and_materials():
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False, confirm=False)
     # delete all materials
-    for material in bpy.data.materials:
+    for material in D.materials:
         material.user_clear()
-        bpy.data.materials.remove(material)
+        D.materials.remove(material)
 
 
 def boundary_plane(size, loc=(0, 0, 0), rot=(0, 0, 0),
@@ -46,23 +46,48 @@ def boundary_plane(size, loc=(0, 0, 0), rot=(0, 0, 0),
         size=size, location=loc, rotation=rot)
     # name it
     if name:
-        bpy.context.object.name = name
+        C.object.name = name
     # set material
     if mat:
-        bpy.context.active_object.data.materials.append(mat)
+        C.active_object.data.materials.append(mat)
     # make it a rigid object
     bpy.ops.rigidbody.objects_add()
-    bpy.context.object.rigid_body.type = rigid_body_type
+    C.object.rigid_body.type = rigid_body_type
     # make collisions elastic
-    bpy.context.object.rigid_body.restitution = 1
-    bpy.context.object.rigid_body.friction = 0
+    C.object.rigid_body.restitution = 1
+    C.object.rigid_body.friction = 0
 
 
+def create_bounding_box(plane_size=5):
+    """Create bounding box for rigid bodies by building 
+    transparent cube from multiple planes."""
+    # set location of each plane
+    plane_locs = ((0, 0, -plane_size/2), (0, 0, plane_size/2),
+        (-plane_size/2, 0, 0), (plane_size/2, 0, 0),
+        (0, -plane_size/2, 0), (0, plane_size/2, 0))
+    # set rotation of each plane
+    plane_rots = ((0, 0, 0), (0, 0, 0),
+        (0, np.pi/2, 0), (0, np.pi/2, 0),
+        (np.pi/2, 0, 0), (np.pi/2, 0, 0))
+    #set name of each plane
+    plane_names = ('plane_low_z', 'plane_high_z',
+        'plane_low_x', 'plane_high_x',
+        'plane_low_y', 'plane_high_y',)
+    # create transparent material
+    mat = make_transparent_material()
+    # create each plane
+    for p in range(len(plane_locs)):
+        boundary_plane(
+            plane_size,
+            loc=plane_locs[p],
+            rot=plane_rots[p],
+            name=plane_names[p],
+            mat=mat)
 
 
 def make_transparent_material(name='transparent'):
     """Create a transparent material."""
-    mat = bpy.data.materials.new(name=name)
+    mat = D.materials.new(name=name)
     mat.use_nodes = True
     mat.shadow_method = 'NONE'
     mat.blend_method = 'HASHED'
@@ -71,111 +96,104 @@ def make_transparent_material(name='transparent'):
     return mat
 
 
+def make_gas_material(name='gas'):
+    """Create a material for gas particles."""
+    mat = D.materials.new(name=name)
+    mat.diffuse_color = (0.3, 0.8, 0.8, 1)
+    mat.roughness = 1
+    mat.shadow_method = 'NONE'
+    return mat
 
 
-# ---------------------- INITIALIZE ENVIRONMENT ----------------------
+def create_rigidbody_particle(loc=(0, 0, 0), radius=1, name=None, mat=None):
+    """Create a rigid body sphere to simulate a gas particle."""
+    # create particle
+    bpy.ops.mesh.primitive_uv_sphere_add(location=loc, radius=radius)
+    # name particle
+    if name:
+        C.object.name = name
+    bpy.ops.object.shade_smooth()
+    # make it a rigid object with elastic collisions
+    bpy.ops.rigidbody.objects_add()
+    C.object.rigid_body.restitution = 1
+    C.object.rigid_body.friction = 0
+    # add material to particle
+    if mat:
+        C.active_object.data.materials.append(mat)
+
+
+
+
+# ---------------------------- INITIALIZE ENVIRONMENT ------------------------
 
 delete_all_objects_and_materials()
 
 # add light source
-bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, 2, 10))
-bpy.context.object.name = 'lamp'
+bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, 2, 5))
+C.object.name = 'lamp'
 
 # add camera
 cam_pos = [0, 0, 10]
 cam_rot = [0, 0, 0]
 bpy.ops.object.camera_add(location=cam_pos, rotation=cam_rot)
-bpy.context.object.name = 'cam'
+C.object.name = 'cam'
 
 
 # make background black
-bpy.data.worlds["World"].node_tree.nodes["Background"].inputs[0].default_value = (0, 0, 0, 1)
+bg = D.worlds["World"].node_tree.nodes["Background"]
+bg.inputs[0].default_value = (0, 0, 0, 0)
 
 # set gravitational acceleration vector
-bpy.context.scene.gravity = [0, 0, 0]
+C.scene.gravity = [0, 0, 0]
 
 # enable rigid bodies in the world
 #bpy.ops.rigidbody.world_add()
 
 
-# -------------- INITIALIZE KEYFRAMES ------------------------------
+# ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
 # set start and end keyframes
-bpy.context.scene.frame_start = 0
-bpy.context.scene.frame_end = 250
+start_kf, end_kf = 0, 250
+C.scene.frame_start = start_kf
+C.scene.frame_end = end_kf
+
+
 
 # for animation, track current frame, specify desired number of key frames
-current_kf = bpy.context.scene.frame_start
+current_kf = C.scene.frame_start
 # set the scene to the current frame
-bpy.context.scene.frame_set(current_kf)
+C.scene.frame_set(current_kf)
 
 
-# ----------------- CREATE PARTICLES -------------------------------
+# --------------------------- CREATE PARTICLES -------------------------------
 
-# set current position
-x, y, z = 0, 0, 0
 
 # set number of gas particles
-gas_particle_num = 50
+gas_particle_num = 80
 
-# loop over each gas particle
-for i in range(gas_particle_num):
-
-    # create gas particle
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        location=(np.random.random(3)-0.5)/20, radius=0.05)
-    # name it
-    bpy.context.object.name = 'particle_' + str(i).zfill(3)
-    # set smooth rendering
-    bpy.ops.object.shade_smooth()
-    # make it a rigid object
-    bpy.ops.rigidbody.objects_add()
-    # make collisions elastic
-    bpy.context.object.rigid_body.restitution = 1
-    bpy.context.object.rigid_body.friction = 0
-    #bpy.context.object.frame_end = 600
-
-    #bpy.context.object.rigid_body.collision_shape = 'SPHERE'
+#for i in range(gas_particle_num):
+[create_rigidbody_particle(
+        loc=(np.random.random(3)-0.5)/20,
+        radius=0.1,
+        name='gas_particle_' + str(i).zfill(3),
+        mat=make_gas_material()) for i in range(gas_particle_num)]
+particles = [p for p in D.objects if p.name.startswith('gas_particle')]
+    
 
 
 
-# get list of all particles
-particles = [p for p in bpy.data.objects if p.name.startswith('particle')]
 
 # initialize keyframes for each particle
 #[p.keyframe_insert(data_path='location', frame=current_kf) for p in particles]
 
-#bpy.context.scene.rigidbody_world.constraints = bpy.data.collections["RigidBodyWorld"]
-
-
-# ---------------------- Create bounding box --------------------------------
+#C.scene.rigidbody_world.constraints = D.collections["RigidBodyWorld"]
 
 
 
+# -------------- Create bounding box using transparent planes ----------------
 
-mat = make_transparent_material()
-
-plane_size = 3
-
-plane_locs = ((0, 0, -plane_size/2), (0, 0, plane_size/2),
-    (-plane_size/2, 0, 0), (plane_size/2, 0, 0),
-    (0, -plane_size/2, 0), (0, plane_size/2, 0))
-    
-plane_rots = ((0, 0, 0), (0, 0, 0),
-    (0, np.pi/2, 0), (0, np.pi/2, 0),
-    (np.pi/2, 0, 0), (np.pi/2, 0, 0))
-
-plane_names = ('plane_low_z', 'plane_high_z',
-    'plane_low_x', 'plane_high_x',
-    'plane_low_y', 'plane_high_y',)
-
-
-for p in range(len(plane_locs)):
-    boundary_plane(plane_size, loc=plane_locs[p], rot=plane_rots[p],
-        name=plane_names[p], mat=mat)
-
-
-
+            
+create_bounding_box(plane_size=5)
 
 
 """
@@ -192,7 +210,8 @@ for p in range(len(plane_locs)):
 current_kf += 1
 
 
-# -------------- ANIMATE PARTICLES ------------------------------------------
+
+# --------------- ANIMATE PARTICLES ------------------------------------------
 
 for i in range(0, 250):
     
