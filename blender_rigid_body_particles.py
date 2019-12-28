@@ -56,6 +56,12 @@ def boundary_plane(size, loc=(0, 0, 0), rot=(0, 0, 0),
     # make collisions elastic
     C.object.rigid_body.restitution = 1
     C.object.rigid_body.friction = 0
+    #C.object.rigid_body.collision_margin = 0.005
+    #C.object.rigid_body.mass = 100
+    bpy.ops.object.modifier_add(type='SOLIDIFY')
+    C.object.modifiers["Solidify"].thickness = 0.1
+    bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Solidify")
+
 
 
 def create_bounding_box(plane_size=5):
@@ -99,13 +105,19 @@ def make_transparent_material(name='transparent'):
 def make_gas_material(name='gas'):
     """Create a material for gas particles."""
     mat = D.materials.new(name=name)
+    mat.use_nodes = True
     mat.diffuse_color = (0.3, 0.8, 0.8, 1)
+    
+    mat.node_tree.nodes["Principled BSDF"].inputs[
+        0].default_value = (0.2, 0.8, 0.7, 1)
+
     mat.roughness = 1
     mat.shadow_method = 'NONE'
     return mat
 
 
-def create_rigidbody_particle(loc=(0, 0, 0), radius=1, name=None, mat=None):
+def create_rigidbody_particle(loc=(0, 0, 0), radius=1, name=None,
+    mass=None, mat=None):
     """Create a rigid body sphere to simulate a gas particle."""
     # create particle
     bpy.ops.mesh.primitive_uv_sphere_add(location=loc, radius=radius)
@@ -117,9 +129,19 @@ def create_rigidbody_particle(loc=(0, 0, 0), radius=1, name=None, mat=None):
     bpy.ops.rigidbody.objects_add()
     C.object.rigid_body.restitution = 1
     C.object.rigid_body.friction = 0
+    C.object.display.show_shadows = False
+    #C.object.rigid_body.collision_margin = 100
+    C.object.rigid_body.collision_shape = 'SPHERE'
+    # change particle mass
+    if mass:
+        C.object.rigid_body.mass = mass
     # add material to particle
     if mat:
         C.active_object.data.materials.append(mat)
+        
+    bpy.ops.object.modifier_add(type='SOLIDIFY')
+    C.object.modifiers["Solidify"].thickness = 0.05
+    bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Solidify")
 
 
 
@@ -133,7 +155,7 @@ bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, 2, 5))
 C.object.name = 'lamp'
 
 # add camera
-cam_pos = [0, 0, 10]
+cam_pos = [0, 0, 20]
 cam_rot = [0, 0, 0]
 bpy.ops.object.camera_add(location=cam_pos, rotation=cam_rot)
 C.object.name = 'cam'
@@ -145,6 +167,11 @@ bg.inputs[0].default_value = (0, 0, 0, 0)
 
 # set gravitational acceleration vector
 C.scene.gravity = [0, 0, 0]
+
+C.scene.rigidbody_world.steps_per_second = 100
+C.scene.rigidbody_world.solver_iterations = 20
+
+
 
 # enable rigid bodies in the world
 #bpy.ops.rigidbody.world_add()
@@ -167,16 +194,18 @@ C.scene.frame_set(current_kf)
 
 # --------------------------- CREATE PARTICLES -------------------------------
 
+create_bounding_box(plane_size=5)
 
-# set number of gas particles
-gas_particle_num = 80
-
-#for i in range(gas_particle_num):
-[create_rigidbody_particle(
-        loc=(np.random.random(3)-0.5)/20,
-        radius=0.1,
+# create gas particles
+gas_particle_num = 200
+mat = make_gas_material()
+for i in range(gas_particle_num):
+    create_rigidbody_particle(
+        loc=(np.random.random(3)-0.5)/10,
+        radius=0.002,
+        mass=20,
         name='gas_particle_' + str(i).zfill(3),
-        mat=make_gas_material()) for i in range(gas_particle_num)]
+        mat=mat)
 particles = [p for p in D.objects if p.name.startswith('gas_particle')]
     
 
@@ -192,8 +221,8 @@ particles = [p for p in D.objects if p.name.startswith('gas_particle')]
 
 # -------------- Create bounding box using transparent planes ----------------
 
-            
-create_bounding_box(plane_size=5)
+       
+
 
 
 """
