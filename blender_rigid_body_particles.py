@@ -171,10 +171,26 @@ C.scene.gravity = [0, 0, 0]
 C.scene.rigidbody_world.steps_per_second = 100
 C.scene.rigidbody_world.solver_iterations = 20
 
+#C.space_data.context = 'RENDER'
+#C.scene.render.engine = 'CYCLES'
+
 
 
 # enable rigid bodies in the world
 #bpy.ops.rigidbody.world_add()
+
+#bpy.context.space_data.context = 'OUTPUT'
+#bpy.context.scene.render.filepath = "/home/eric/Desktop/blender_render"
+
+'''
+C.space_data.context = 'OUTPUT'
+C.space_data.system_bookmarks_active = 1
+
+C.space_data.params.filename = "blender_render"
+C.scene.render.image_settings.file_format = 'AVI_JPEG'
+C.scene.render.image_settings.quality = 100
+'''
+
 
 
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
