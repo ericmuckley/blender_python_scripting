@@ -129,11 +129,10 @@ def make_gas_material(rgb_alpha, name='gas'):
 
 
 def create_particle(loc=(0, 0, 0), rot=(0, 0, 0), radius=1, name=None,
-    mass=None, mat=None):
+    mat=None):
     """Create a sphere to simulate a gas particle."""
     bpy.ops.mesh.primitive_uv_sphere_add(
         location=loc,
-        rotation=rot,
         radius=radius)
     bpy.ops.object.shade_smooth()
     if name:
@@ -142,11 +141,9 @@ def create_particle(loc=(0, 0, 0), rot=(0, 0, 0), radius=1, name=None,
         C.active_object.data.materials.append(mat)
 
 
-def add_collision_properties(obj, mass=None):
+def add_collision_properties(obj, mass=1):
     """Turn a mesh object into a rigid body for elastic collisions."""
-    #bpy.context.scene.objects.active = obj
     bpy.context.view_layer.objects.active = obj
-    print(bpy.context.view_layer.objects.active)
     C.object.rigid_body.restitution = 1
     C.object.rigid_body.friction = 0
     C.object.rigid_body.linear_damping = 0
@@ -157,8 +154,7 @@ def add_collision_properties(obj, mass=None):
     bpy.ops.object.modifier_add(type='SOLIDIFY')
     C.object.modifiers["Solidify"].thickness = 0.05
     bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Solidify")
-    if mass:
-        C.object.rigid_body.mass = mass
+    C.object.rigid_body.mass = mass
 
 
 def set_background(rgb_alpha=(0, 0, 0, 0)):
@@ -191,12 +187,12 @@ set_background(rgb_alpha=(1, 1, 1, 1))
 # set gravitational acceleration vector
 C.scene.gravity = [0, 0, 0]
 
-
+create_bounding_box(plane_size=10)
 
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
 # set start and end keyframes
-start_kf, end_kf = 0, 600
+start_kf, end_kf = 0, 500
 C.scene.frame_start = start_kf
 C.scene.frame_end = end_kf
 # for animation, track current frame, specify desired number of key frames
@@ -204,25 +200,27 @@ current_kf = C.scene.frame_start
 # set the scene to the current frame
 C.scene.frame_set(current_kf)
 
+
+
+
+
+
+
+
 # --------------------------- CREATE PARTICLES -------------------------------
 
-create_bounding_box(plane_size=10)
-
 # create gas particles
-gas_particle_num = 60
+gas_particle_num = 300
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
 for i in range(gas_particle_num):
     create_particle(
         loc=(np.random.random(3)-0.5),
-        rot=np.random.random(3)-0.5,
         radius=0.001,
-        mass=2,
         name='gas_' + str(i).zfill(3),
         mat=mat)
 particles = [p for p in D.objects if p.name.startswith('gas')]
 
 # --------------- ANIMATE PARTICLES ------------------------------------------
-
 
 # create initial keyframe state of each particle
 for p in particles:
@@ -233,7 +231,7 @@ for p in particles:
     C.object.rigid_body.kinematic = True
     kf_types = ('location', 'rigid_body.kinematic')
     [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
-    add_collision_properties(p)
+    add_collision_properties(p, mass=1)
 
 # increment the keyframe and create new keyframe to add initial velocity
 current_kf += 3
@@ -241,7 +239,7 @@ current_kf += 3
 for p in particles:
     C.view_layer.objects.active = p
     current_location = p.location
-    translate_by = 2 * (np.random.random(3) - 0.5)
+    translate_by = 1 * (np.random.random(3) - 0.5)
     # translate particle
     p.location = tuple(map(sum, zip(current_location, translate_by)))
     bpy.context.object.rigid_body.kinematic = False
@@ -249,17 +247,49 @@ for p in particles:
     [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
 
 
+
+
+
+
+
+
+
+
+
+# -------------------------------- CREATE PLUME ------------------------------
+
+mat = make_gas_material((0, 0.02, 0.8, 1))
+plume_locs = (((0, 2, 0)), (2, 0, 0), (-2, 0, 0), (0, -2, 0))
+for i in range(4):
+    create_particle(
+        loc=plume_locs[i],
+        radius=0.75,
+        name='plume_' + str(i).zfill(3),
+        mat=mat)
+
+
+plumes = [p for p in D.objects if p.name.startswith('plume')]
+print(plumes)
+for p in plumes:
+    C.view_layer.objects.active = p
+    bpy.ops.rigidbody.object_add()
+    add_collision_properties(p, mass=20)
+
+
+
+
+
+
+
+
+
+# -------------------------- PREPARE RENDER ----------------------------------
+
 # reset the starting and ending keyframes
 C.scene.frame_start = start_kf
 C.scene.frame_end = end_kf
-
-
-
-# ------------------------------------------------------
-
-
 # increase rigid body accuracy so objects don't pass through each other
 C.scene.rigidbody_world.steps_per_second = 300
 C.scene.rigidbody_world.solver_iterations = 50
 
-#render()
+render()
