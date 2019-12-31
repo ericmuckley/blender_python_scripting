@@ -130,22 +130,17 @@ def make_gas_material(rgb_alpha, name='gas'):
     return mat
 
 
-def create_particle(loc=(0, 0, 0), radius=1, name=None,
+def create_rigidbody_particle(loc=(0, 0, 0), radius=1, name=None,
     mass=None, mat=None):
-    """Create a sphere to simulate a gas particle."""
+    """Create a rigid body sphere to simulate a gas particle."""
+    # create particle
     bpy.ops.mesh.primitive_uv_sphere_add(location=loc, radius=radius)
-    bpy.ops.object.shade_smooth()
+    # name particle
     if name:
         C.object.name = name
-    if mat:
-        C.active_object.data.materials.append(mat)
-
-
-def add_collision_properties(obj, mass=None):
-    """Turn a mesh object into a rigid body for elastic collisions."""
-    #bpy.context.scene.objects.active = obj
-    bpy.context.view_layer.objects.active = obj
-    print(bpy.context.view_layer.objects.active)
+    bpy.ops.object.shade_smooth()
+    # make it a rigid object with elastic collisions
+    bpy.ops.rigidbody.objects_add()
     C.object.rigid_body.restitution = 1
     C.object.rigid_body.friction = 0
     C.object.rigid_body.linear_damping = 0
@@ -153,11 +148,16 @@ def add_collision_properties(obj, mass=None):
     C.object.display.show_shadows = False
     C.object.rigid_body.collision_margin = 0.1
     C.object.rigid_body.collision_shape = 'SPHERE'
+    # change particle mass
+    if mass:
+        C.object.rigid_body.mass = mass
+    # add material to particle
+    if mat:
+        C.active_object.data.materials.append(mat)
+        
     bpy.ops.object.modifier_add(type='SOLIDIFY')
     C.object.modifiers["Solidify"].thickness = 0.05
     bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Solidify")
-    if mass:
-        C.object.rigid_body.mass = mass
 
 
 def set_background(rgb_alpha=(0, 0, 0, 0)):
@@ -198,48 +198,84 @@ C.scene.frame_set(current_kf)
 create_bounding_box(plane_size=5)
 
 # create gas particles
-gas_particle_num = 50
+gas_particle_num = 30
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
 for i in range(gas_particle_num):
-    create_particle(
-        loc=5*(np.random.random(3)-0.5),
-        radius=0.01,
+    create_rigidbody_particle(
+        loc=(np.random.random(3)-0.5)/5,
+        radius=0.001,
         mass=20,
-        name='gas_' + str(i).zfill(3),
+        name='gas_particle_' + str(i).zfill(3),
         mat=mat)
-particles = [p for p in D.objects if p.name.startswith('gas')]
+particles = [p for p in D.objects if p.name.startswith('particle')]
 
+
+# initialize keyframes for each particle
+#[p.keyframe_insert(data_path='location', frame=current_kf) for p in particles]
+
+#C.scene.rigidbody_world.constraints = D.collections["RigidBodyWorld"]
+
+
+planes = [p for p in D.objects if p.name.startswith('plane')]
+
+'''
+for p in planes:
+    #bpy.context.scene.objects.active = p
+    C.view_layer.objects.active = p
+    #C.scene.objects.active = p
+    bpy.ops.object.editmode_toggle()
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles()
+    bpy.ops.mesh.subdivide(quadcorner='INNERVERT')
+    bpy.ops.mesh.subdivide(quadcorner='INNERVERT')
+
+
+for p in particles:
+    #bpy.context.scene.objects.active = p
+    C.view_layer.objects.active = p
+    #C.scene.objects.active = p
+    bpy.ops.object.editmode_toggle()
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles()
+    bpy.ops.object.editmode_toggle()
+
+'''
+
+"""
+- add starting velocities
+- add shadlowless-material
+- add plume of different shadowless material
+- extend range of keyframes
+- add depth of field
+"""
+
+
+'''
+# increment the keyframe
+current_kf += 1
 
 
 
 # --------------- ANIMATE PARTICLES ------------------------------------------
 
-
-# create initial keyframe state of each particle
-for p in particles:
-    C.view_layer.objects.active = p
-    bpy.ops.rigidbody.object_add()
-    C.object.rigid_body.type = 'ACTIVE'
-    C.object.rigid_body.enabled = True
-    C.object.rigid_body.kinematic = True
-    p.keyframe_insert(data_path='location', frame=current_kf)
-    p.keyframe_insert(data_path='rigid_body.kinematic',frame=current_kf)
+for i in range(0, 250):
     
-    add_collision_properties(p)
+    # loop over each particle
+    for p in particles:
+        
+        # get current location of particle and translate it
+        current_location = p.location
+        # get new location of particle
+        translate_by = 0.5 * (np.random.random(3) - 0.5)
+        # translate particle
+        p.location = tuple(map(sum, zip(current_location, translate_by)))
 
+        # insert new keyframe
+        p.keyframe_insert(data_path='location', frame=current_kf)
 
-# increment the keyframe and create new keyframe to add initial velocity
-current_kf += 5
-for p in particles:
-    C.view_layer.objects.active = p
-    current_location = p.location
-    translate_by = 0.5 * (np.random.random(3) - 0.5)
-    # translate particle
-    p.location = tuple(map(sum, zip(current_location, translate_by)))
-    bpy.context.object.rigid_body.kinematic = False
-    p.keyframe_insert(data_path='location', frame=current_kf)   
-    p.keyframe_insert(data_path='rigid_body.kinematic', frame=current_kf)
-
+    # increment the keyframe
+    current_kf += 1
+.'''
 
 
 
