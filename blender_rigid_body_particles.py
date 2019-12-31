@@ -24,8 +24,6 @@ For obtaining location data from rigid body object at each keyframe:
 obj = bpy.data.objects["Cube"]
 print(obj.matrix_world.translation)
 
-
-
 """
 
 
@@ -130,10 +128,13 @@ def make_gas_material(rgb_alpha, name='gas'):
     return mat
 
 
-def create_particle(loc=(0, 0, 0), radius=1, name=None,
+def create_particle(loc=(0, 0, 0), rot=(0, 0, 0), radius=1, name=None,
     mass=None, mat=None):
     """Create a sphere to simulate a gas particle."""
-    bpy.ops.mesh.primitive_uv_sphere_add(location=loc, radius=radius)
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        location=loc,
+        rotation=rot,
+        radius=radius)
     bpy.ops.object.shade_smooth()
     if name:
         C.object.name = name
@@ -166,11 +167,20 @@ def set_background(rgb_alpha=(0, 0, 0, 0)):
     bg.inputs[0].default_value = rgb_alpha
 
 
+def render(filepath="/home/eric/Desktop/blender_render"):
+    """Render the animation."""
+    C.scene.render.filepath = filepath
+    C.scene.render.image_settings.file_format = 'AVI_JPEG'
+    C.scene.render.image_settings.quality = 100
+    bpy.ops.ptcache.bake_all(bake=True)
+    bpy.ops.render.render('INVOKE_DEFAULT', animation=True)
+
+
 # ---------------------------- INITIALIZE ENVIRONMENT ------------------------
 
 delete_all_objects_and_materials()
 
-add_camera(loc=(14, -14, 6), rot=(np.pi/2.5, 0, np.pi/4))
+add_camera(loc=(30, -30, 13), rot=(np.pi/2.5, 0, np.pi/4))
 
 # add light source
 bpy.ops.object.light_add(type='SUN', radius=1.0, location=(10, -10, 10))
@@ -182,10 +192,11 @@ set_background(rgb_alpha=(1, 1, 1, 1))
 C.scene.gravity = [0, 0, 0]
 
 
+
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
 # set start and end keyframes
-start_kf, end_kf = 0, 250
+start_kf, end_kf = 0, 600
 C.scene.frame_start = start_kf
 C.scene.frame_end = end_kf
 # for animation, track current frame, specify desired number of key frames
@@ -195,22 +206,20 @@ C.scene.frame_set(current_kf)
 
 # --------------------------- CREATE PARTICLES -------------------------------
 
-create_bounding_box(plane_size=5)
+create_bounding_box(plane_size=10)
 
 # create gas particles
-gas_particle_num = 50
+gas_particle_num = 60
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
 for i in range(gas_particle_num):
     create_particle(
-        loc=5*(np.random.random(3)-0.5),
-        radius=0.01,
-        mass=20,
+        loc=(np.random.random(3)-0.5),
+        rot=np.random.random(3)-0.5,
+        radius=0.001,
+        mass=2,
         name='gas_' + str(i).zfill(3),
         mat=mat)
 particles = [p for p in D.objects if p.name.startswith('gas')]
-
-
-
 
 # --------------- ANIMATE PARTICLES ------------------------------------------
 
@@ -222,37 +231,35 @@ for p in particles:
     C.object.rigid_body.type = 'ACTIVE'
     C.object.rigid_body.enabled = True
     C.object.rigid_body.kinematic = True
-    p.keyframe_insert(data_path='location', frame=current_kf)
-    p.keyframe_insert(data_path='rigid_body.kinematic',frame=current_kf)
-    
+    kf_types = ('location', 'rigid_body.kinematic')
+    [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
     add_collision_properties(p)
 
-
 # increment the keyframe and create new keyframe to add initial velocity
-current_kf += 5
+current_kf += 3
+
 for p in particles:
     C.view_layer.objects.active = p
     current_location = p.location
-    translate_by = 0.5 * (np.random.random(3) - 0.5)
+    translate_by = 2 * (np.random.random(3) - 0.5)
     # translate particle
     p.location = tuple(map(sum, zip(current_location, translate_by)))
     bpy.context.object.rigid_body.kinematic = False
-    p.keyframe_insert(data_path='location', frame=current_kf)   
-    p.keyframe_insert(data_path='rigid_body.kinematic', frame=current_kf)
+    kf_types = ('location', 'rigid_body.kinematic')
+    [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
 
+
+# reset the starting and ending keyframes
+C.scene.frame_start = start_kf
+C.scene.frame_end = end_kf
 
 
 
 # ------------------------------------------------------
 
-def render(filepath="/home/eric/Desktop/blender_render"):
-    """Render the animation."""
-    C.scene.render.filepath = filepath
-    C.scene.render.image_settings.file_format = 'AVI_JPEG'
-    C.scene.render.image_settings.quality = 100
-    C.scene.rigidbody_world.steps_per_second = 300
-    C.scene.rigidbody_world.solver_iterations = 50
-    bpy.ops.ptcache.bake_all(bake=True)
-    bpy.ops.render.render('INVOKE_DEFAULT', animation=True)
-    
+
+# increase rigid body accuracy so objects don't pass through each other
+C.scene.rigidbody_world.steps_per_second = 300
+C.scene.rigidbody_world.solver_iterations = 50
+
 #render()
