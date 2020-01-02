@@ -210,7 +210,7 @@ C.scene.frame_set(current_kf)
 # --------------------------- CREATE PARTICLES -------------------------------
 
 # create gas particles
-gas_particle_num = 30
+gas_particle_num = 50
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
 for i in range(gas_particle_num):
     create_particle(
@@ -230,11 +230,11 @@ for p in particles:
     C.object.rigid_body.enabled = True
     C.object.rigid_body.kinematic = True
     kf_types = ('location', 'rigid_body.kinematic')
-    [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
+    [p.keyframe_insert(data_path=kft, frame=0) for kft in kf_types]
     add_collision_properties(p, mass=1)
 
 # increment the keyframe and create new keyframe to add initial velocity
-current_kf += 3
+current_kf += 4
 
 for p in particles:
     C.view_layer.objects.active = p
@@ -259,24 +259,54 @@ for p in particles:
 # -------------------------------- CREATE PLUME ------------------------------
 
 mat = make_gas_material((0, 0.02, 0.8, 1))
-plume_locs = (((0, 2, 0)), (2, 0, 0), (-2, 0, 0), (0, -2, 0))
-for i in range(4):
+plume_locs = (
+    (-1, -4, 0),
+    (-0.5, -4, 0),
+    (0, -4, 0),
+    (0.5, -4, 0),
+    (1, -4, 0),
+    (-1, -4, 0.5),
+    (-0.5, -4, 0.5),
+    (0, -4, 0.5),
+    (0.5, -4, 0.5),
+    (1, -4, 0.5),
+    (-1, -4, -0.5),
+    (-0.5, -4, -0.5),
+    (0, -4, -0.5),
+    (0.5, -4, -0.5),
+    (1, -4, -0.5))
+    
+
+for i in range(len(plume_locs)):
     create_particle(
         loc=plume_locs[i],
-        radius=0.75,
+        radius=0.1,
         name='plume_' + str(i).zfill(3),
         mat=mat)
 
-
 plumes = [p for p in D.objects if p.name.startswith('plume')]
-print(plumes)
+
 for p in plumes:
     C.view_layer.objects.active = p
     bpy.ops.rigidbody.object_add()
-    add_collision_properties(p, mass=20)
+    add_collision_properties(p, mass=10)
+
+    # create initial keyframe state of each particle
+    C.object.rigid_body.type = 'ACTIVE'
+    C.object.rigid_body.enabled = True
+    C.object.rigid_body.kinematic = True
+    kf_types = ('location', 'rigid_body.kinematic')
+    [p.keyframe_insert(data_path=kft, frame=100) for kft in kf_types]
 
 
 
+    current_location = p.location
+    translate_by = (0, 0.5, 0)
+    # translate particle
+    p.location = tuple(map(sum, zip(current_location, translate_by)))
+    bpy.context.object.rigid_body.kinematic = False
+    kf_types = ('location', 'rigid_body.kinematic')
+    [p.keyframe_insert(data_path=kft, frame=105) for kft in kf_types]
 
 
 

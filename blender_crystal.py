@@ -187,12 +187,15 @@ set_background(rgb_alpha=(1, 1, 1, 1))
 # set gravitational acceleration vector
 C.scene.gravity = [0, 0, 0]
 
-create_bounding_box(plane_size=10)
+#create_bounding_box(plane_size=10)
+
+
+
 
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
 # set start and end keyframes
-start_kf, end_kf = 0, 500
+start_kf, end_kf = 0, 250
 C.scene.frame_start = start_kf
 C.scene.frame_end = end_kf
 # for animation, track current frame, specify desired number of key frames
@@ -207,21 +210,48 @@ C.scene.frame_set(current_kf)
 
 
 
-# --------------------------- CREATE PARTICLES -------------------------------
+# --------------------------- CREATE ATOMS -------------------------------
 
-# create gas particles
-gas_particle_num = 30
+
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
-for i in range(gas_particle_num):
-    create_particle(
-        loc=(np.random.random(3)-0.5),
-        radius=0.001,
-        name='gas_' + str(i).zfill(3),
-        mat=mat)
-particles = [p for p in D.objects if p.name.startswith('gas')]
+atom_1d_num = 6
+loc_list = np.arange(atom_1d_num) - (float(atom_1d_num)/2)
+
+atom_num = 0
+for i in loc_list:
+    for j in loc_list:
+        for k in loc_list:
+            create_particle(
+                loc=np.array([i, j, k])*1.5,
+                radius=0.1,
+                name='atom_1_'+str(atom_num).zfill(4),
+                mat=mat)
+            atom_num += 1
+
+atoms = [a for a in D.objects if a.name.startswith('atom_1_')]
+
+
+
+for a in atoms:
+    loc = a.location
+    current_kf = 0
+    for kf in range(250):
+        
+        translate_by = (np.random.random(3)-0.5) * 0.05
+        
+        a.location = tuple(map(sum, zip(loc, translate_by)))
+
+        a.keyframe_insert(data_path='location', frame=current_kf)
+
+        current_kf += 1
+    
+    
+    
+
+
 
 # --------------- ANIMATE PARTICLES ------------------------------------------
-
+'''
 # create initial keyframe state of each particle
 for p in particles:
     C.view_layer.objects.active = p
@@ -230,11 +260,11 @@ for p in particles:
     C.object.rigid_body.enabled = True
     C.object.rigid_body.kinematic = True
     kf_types = ('location', 'rigid_body.kinematic')
-    [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
+    [p.keyframe_insert(data_path=kft, frame=0) for kft in kf_types]
     add_collision_properties(p, mass=1)
 
 # increment the keyframe and create new keyframe to add initial velocity
-current_kf += 3
+current_kf += 4
 
 for p in particles:
     C.view_layer.objects.active = p
@@ -247,6 +277,7 @@ for p in particles:
     [p.keyframe_insert(data_path=kft, frame=current_kf) for kft in kf_types]
 
 
+'''
 
 
 
@@ -254,32 +285,61 @@ for p in particles:
 
 
 
-
-
+'''
 # -------------------------------- CREATE PLUME ------------------------------
 
 mat = make_gas_material((0, 0.02, 0.8, 1))
-plume_locs = (((0, 2, 0)), (2, 0, 0), (-2, 0, 0), (0, -2, 0))
-for i in range(4):
+plume_locs = (
+    (-1, -4, 0),
+    (-0.5, -4, 0),
+    (0, -4, 0),
+    (0.5, -4, 0),
+    (1, -4, 0),
+    (-1, -4, 0.5),
+    (-0.5, -4, 0.5),
+    (0, -4, 0.5),
+    (0.5, -4, 0.5),
+    (1, -4, 0.5),
+    (-1, -4, -0.5),
+    (-0.5, -4, -0.5),
+    (0, -4, -0.5),
+    (0.5, -4, -0.5),
+    (1, -4, -0.5))
+    
+
+for i in range(len(plume_locs)):
     create_particle(
         loc=plume_locs[i],
-        radius=0.75,
+        radius=0.1,
         name='plume_' + str(i).zfill(3),
         mat=mat)
 
-
 plumes = [p for p in D.objects if p.name.startswith('plume')]
-print(plumes)
+
 for p in plumes:
     C.view_layer.objects.active = p
     bpy.ops.rigidbody.object_add()
-    add_collision_properties(p, mass=20)
+    add_collision_properties(p, mass=10)
+
+    # create initial keyframe state of each particle
+    C.object.rigid_body.type = 'ACTIVE'
+    C.object.rigid_body.enabled = True
+    C.object.rigid_body.kinematic = True
+    kf_types = ('location', 'rigid_body.kinematic')
+    [p.keyframe_insert(data_path=kft, frame=100) for kft in kf_types]
 
 
 
+    current_location = p.location
+    translate_by = (0, 0.5, 0)
+    # translate particle
+    p.location = tuple(map(sum, zip(current_location, translate_by)))
+    bpy.context.object.rigid_body.kinematic = False
+    kf_types = ('location', 'rigid_body.kinematic')
+    [p.keyframe_insert(data_path=kft, frame=105) for kft in kf_types]
 
 
-
+'''
 
 
 
