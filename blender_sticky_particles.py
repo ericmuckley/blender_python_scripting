@@ -69,7 +69,7 @@ def boundary_plane(size, loc=(0, 0, 0), rot=(0, 0, 0),
     C.object.rigid_body.type = rigid_body_type
     # make collisions elastic
     C.object.rigid_body.restitution = bounciness
-    C.object.rigid_body.friction = 0.5
+    C.object.rigid_body.friction = 1
     C.object.rigid_body.collision_margin = 0.1
     #C.object.rigid_body.mass = 100
     bpy.ops.object.modifier_add(type='SOLIDIFY')
@@ -186,56 +186,65 @@ C.object.name = 'lamp'
 
 set_background(rgb_alpha=(0, 0, 0, 1))
 
+
+
+# ------------------------ INITIALIZE KEYFRAMES ------------------------------
+
+# set start and end keyframes
+start_kf, end_kf = 0, 500
+C.scene.frame_start = start_kf
+C.scene.frame_end = end_kf
+# for animation, track current frame, specify desired number of key frames
+current_kf = C.scene.frame_start
+# set the scene to the current frame
+C.scene.frame_set(current_kf)
+
 # set gravitational acceleration vector
 C.scene.gravity = [0, 0, 0]
 
-
-
-
 # --------------------- ADD PLANE TO SERVE AS FLOOR --------------------------
 
-#boundary_plane(12, name='floor')
+boundary_plane(25, name='floor')
 
 # -------------------------- CREATE PARTICLES --------------------------------
 
-
-for i in range(50):
+for i in range(16):
     
     # set particle location, name
-    p_loc = 5*(np.random.random(3) - 0.5)
+    p_loc = 3*(np.random.random(3) - 0.5) + [0, 0, 15]
     p_name = 'particle_'+str(i).zfill(3)
     
     # create particle
-    create_particle(loc=p_loc, radius=0.5, name=p_name)
+    create_particle(loc=p_loc, radius=0.2, name=p_name)
     
     # make particle a rigid body
-    bpy.ops.rigidbody.object_add()
-    
-    # select particle
-    #p = C.view_layer.objects.active
-    
-    # create force field
-    bpy.ops.object.effector_add(type='FORCE', enter_editmode=False, location=p_loc)
-    f_name = 'force_'+str(i).zfill(3)
-    C.object.field.strength = -50
+    bpy.ops.rigidbody.object_add() 
+    C.object.rigid_body.linear_damping = 0.25
+    C.object.rigid_body.angular_damping = 0.25
 
     
     
-    # select particle and force field
-    for o in (p_name, f_name):
-        obj = bpy.context.scene.objects.get(o)
-        if obj: obj.select_set(True)
-    
-    #bpy.data.objects[p_name].select_set(True)
+    # create force field
+    bpy.ops.object.effector_add(
+        type='FORCE',
+        enter_editmode=False,
+        location=p_loc)
+    f_name = 'force_'+str(i).zfill(3)    
+    C.object.name = f_name
+    C.object.field.strength = -80
+
+    # deselect all objects
+    bpy.ops.object.select_all(action='DESELECT')
+    # select particle and force field and parent them
+    p = bpy.context.scene.objects.get(p_name)
+    f = bpy.context.scene.objects.get(f_name)
+    p.select_set(True)
+    f.select_set(True)
+    C.view_layer.objects.active = p
     bpy.ops.object.parent_set(type='OBJECT')
 
 
-    
-    
-    
-
-
-particles = [p for p in D.objects if p.name.startswith('particle')]
+#particles = [p for p in D.objects if p.name.startswith('particle')]
 
 
 '''
@@ -289,61 +298,13 @@ for p in particles:
 '''
 
 
-# ------------------------ INITIALIZE KEYFRAMES ------------------------------
-
-# set start and end keyframes
-start_kf, end_kf = 0, 250
-C.scene.frame_start = start_kf
-C.scene.frame_end = end_kf
-# for animation, track current frame, specify desired number of key frames
-current_kf = C.scene.frame_start
-# set the scene to the current frame
-C.scene.frame_set(current_kf)
-
-
-
-
-
-
 
 
 # --------------------------- CREATE ATOMS -------------------------------
-'''
+
 
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
-atom_1d_num = 6
-loc_list = np.arange(atom_1d_num) - (float(atom_1d_num)/2)
 
-atom_num = 0
-for i in loc_list:
-    for j in loc_list:
-        for k in loc_list:
-            create_particle(
-                loc=np.array([i, j, k])*1.5,
-                radius=0.1,
-                name='atom_1_'+str(atom_num).zfill(4),
-                mat=mat)
-            atom_num += 1
-
-atoms = [a for a in D.objects if a.name.startswith('atom_1_')]
-
-'''
-'''
-for a in atoms:
-    loc = a.location
-    current_kf = 0
-    for kf in range(250):
-        
-        translate_by = (np.random.random(3)-0.5) * 0.05
-        
-        a.location = tuple(map(sum, zip(loc, translate_by)))
-
-        a.keyframe_insert(data_path='location', frame=current_kf)
-
-        current_kf += 1
-    
-    
- '''   
 
 
 
@@ -381,72 +342,17 @@ for p in particles:
 
 
 
-
-'''
-# -------------------------------- CREATE PLUME ------------------------------
-
-mat = make_gas_material((0, 0.02, 0.8, 1))
-plume_locs = (
-    (-1, -4, 0),
-    (-0.5, -4, 0),
-    (0, -4, 0),
-    (0.5, -4, 0),
-    (1, -4, 0),
-    (-1, -4, 0.5),
-    (-0.5, -4, 0.5),
-    (0, -4, 0.5),
-    (0.5, -4, 0.5),
-    (1, -4, 0.5),
-    (-1, -4, -0.5),
-    (-0.5, -4, -0.5),
-    (0, -4, -0.5),
-    (0.5, -4, -0.5),
-    (1, -4, -0.5))
-    
-
-for i in range(len(plume_locs)):
-    create_particle(
-        loc=plume_locs[i],
-        radius=0.1,
-        name='plume_' + str(i).zfill(3),
-        mat=mat)
-
-plumes = [p for p in D.objects if p.name.startswith('plume')]
-
-for p in plumes:
-    C.view_layer.objects.active = p
-    bpy.ops.rigidbody.object_add()
-    add_collision_properties(p, mass=10)
-
-    # create initial keyframe state of each particle
-    C.object.rigid_body.type = 'ACTIVE'
-    C.object.rigid_body.enabled = True
-    C.object.rigid_body.kinematic = True
-    kf_types = ('location', 'rigid_body.kinematic')
-    [p.keyframe_insert(data_path=kft, frame=100) for kft in kf_types]
-
-
-
-    current_location = p.location
-    translate_by = (0, 0.5, 0)
-    # translate particle
-    p.location = tuple(map(sum, zip(current_location, translate_by)))
-    bpy.context.object.rigid_body.kinematic = False
-    kf_types = ('location', 'rigid_body.kinematic')
-    [p.keyframe_insert(data_path=kft, frame=105) for kft in kf_types]
-
-
-'''
-
-
-
 # -------------------------- PREPARE RENDER ----------------------------------
 
 # reset the starting and ending keyframes
 C.scene.frame_start = start_kf
 C.scene.frame_end = end_kf
 # increase rigid body accuracy so objects don't pass through each other
-C.scene.rigidbody_world.steps_per_second = 300
-C.scene.rigidbody_world.solver_iterations = 50
+C.scene.rigidbody_world.steps_per_second = 500
+C.scene.rigidbody_world.solver_iterations = 150
+
+bpy.ops.ptcache.free_bake_all()
+bpy.ops.ptcache.bake_all(bake=True)
+
 
 #render()
