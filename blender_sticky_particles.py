@@ -232,6 +232,8 @@ for i in range(16):
     f_name = 'force_'+str(i).zfill(3)    
     C.object.name = f_name
     C.object.field.strength = -80
+    C.object.field.falloff_power = 2
+
 
     # deselect all objects
     bpy.ops.object.select_all(action='DESELECT')
