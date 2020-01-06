@@ -33,8 +33,16 @@ def delete_all_objects_and_materials():
     # select all objects and delete them
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False, confirm=False)
-    # delete all physics bakes
-    #bpy.ops.ptcache.free_bake()
+    
+    
+    for obj in C.scene.objects: 
+        d = obj.data
+        d.users
+        d.user_clear()
+        D.meshes.remove(d)
+    
+    
+    # delete all physics bakes    
     bpy.ops.ptcache.free_bake_all()
     # delete all materials
     for material in D.materials:
@@ -185,10 +193,20 @@ def create_force_particle(loc=(0, 0, 0), radius=1,
         C.object.name = p_name
     if mat:
         C.active_object.data.materials.append(mat)
+
     # make particle a rigid body
     bpy.ops.rigidbody.object_add() 
     C.object.rigid_body.linear_damping = lin_damp
     C.object.rigid_body.angular_damping = ang_damp
+    
+    # add collision properties
+    bpy.ops.object.modifier_add(type='COLLISION')
+    C.object.collision.stickiness = 0.2
+    C.object.collision.damping_factor = 0.2
+    C.object.collision.friction_factor = 0.2
+
+    
+    
     # create force field
     if force != 0:
         bpy.ops.object.effector_add(
@@ -221,7 +239,7 @@ add_camera(loc=(0, -24, 14), rot=(np.pi/3, 0, 0))#(np.pi/2.5, 0, np.pi/2))
 bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, -10, 10))
 C.object.name = 'lamp'
 
-set_background(rgb_alpha=(0, 0, 0, 1))
+set_background(rgb_alpha=(0, 0, 0, -10))
 
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
@@ -243,31 +261,17 @@ boundary_plane(25, name='floor')
 
 # -------------------------- CREATE PARTICLES --------------------------------
 
-'''
-for i in range(8):
-    
-    # set particle location, name
-    p_loc = 3*(np.random.random(3) - 0.5) + [0, 0, 15]
-    p_name = 'particle_'+str(i).zfill(3)
-    
-    # create particle
-    create_force_particle(loc=p_loc, radius=0.2, p_name=p_name, force=-80) 
-'''
-
 for i in range(16):
     
     # set particle location, name
-    p_loc = 3*(np.random.random(3) - 0.5) + [0, 0, 5]
-    p_name = 'b_particle_'+str(i).zfill(3)
+    p_radius = 0.2
+    p_loc = np.append(8*(np.random.random(2) - 0.5), [p_radius+0.1])
+    p_name = 'particle_'+str(i).zfill(3)
     
     # create particle
-    create_force_particle(loc=p_loc, radius=0.2, p_name=p_name, force=-80) 
+    create_force_particle(loc=p_loc, radius=p_radius, p_name=p_name, force=-80) 
 
-
-
-
-
-#particles = [p for p in D.objects if p.name.startswith('particle')]
+particles = [p for p in D.objects if p.name.startswith('particle')]
 
 
 
