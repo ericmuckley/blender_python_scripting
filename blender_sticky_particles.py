@@ -27,7 +27,6 @@ print(obj.matrix_world.translation)
 """
 
 
-
 def delete_all_objects_and_materials():
     """Delete all objects and materials. Run this
     at the beginning of the script to clear the environment."""
@@ -174,6 +173,44 @@ def render(filepath="/home/eric/Desktop/blender_render"):
     bpy.ops.render.render('INVOKE_DEFAULT', animation=True)
 
 
+def create_force_particle(loc=(0, 0, 0), radius=1,
+    p_name=None, mat=None, force=0, falloff=2,
+    lin_damp=0.25, ang_damp=0.25):
+    """Create a sphere to simulate a particle with an inherent force.
+    Force can be positive or negative (repulsive or attractive) with falloff
+    exponent and linear and angular damping of particle motion."""
+    bpy.ops.mesh.primitive_uv_sphere_add(location=loc, radius=radius)
+    bpy.ops.object.shade_smooth()
+    if p_name:
+        C.object.name = p_name
+    if mat:
+        C.active_object.data.materials.append(mat)
+    # make particle a rigid body
+    bpy.ops.rigidbody.object_add() 
+    C.object.rigid_body.linear_damping = lin_damp
+    C.object.rigid_body.angular_damping = ang_damp
+    # create force field
+    if force != 0:
+        bpy.ops.object.effector_add(
+            type='FORCE',
+            enter_editmode=False,
+            location=loc)
+        C.object.field.strength = force
+        C.object.field.falloff_power = falloff
+        f_name = p_name + '_force_' + str(i).zfill(3)
+        C.object.name = f_name
+        # parent force to particle
+        bpy.ops.object.select_all(action='DESELECT')
+        # select particle and force field and parent them
+        p = bpy.context.scene.objects.get(p_name)
+        f = bpy.context.scene.objects.get(f_name)
+        p.select_set(True)
+        f.select_set(True)
+        C.view_layer.objects.active = p
+        bpy.ops.object.parent_set(type='OBJECT')
+
+
+
 # ---------------------------- INITIALIZE ENVIRONMENT ------------------------
 
 delete_all_objects_and_materials()
@@ -185,8 +222,6 @@ bpy.ops.object.light_add(type='SUN', radius=1.0, location=(0, -10, 10))
 C.object.name = 'lamp'
 
 set_background(rgb_alpha=(0, 0, 0, 1))
-
-
 
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
@@ -208,97 +243,31 @@ boundary_plane(25, name='floor')
 
 # -------------------------- CREATE PARTICLES --------------------------------
 
-for i in range(16):
+'''
+for i in range(8):
     
     # set particle location, name
     p_loc = 3*(np.random.random(3) - 0.5) + [0, 0, 15]
     p_name = 'particle_'+str(i).zfill(3)
     
     # create particle
-    create_particle(loc=p_loc, radius=0.2, name=p_name)
-    
-    # make particle a rigid body
-    bpy.ops.rigidbody.object_add() 
-    C.object.rigid_body.linear_damping = 0.25
-    C.object.rigid_body.angular_damping = 0.25
+    create_force_particle(loc=p_loc, radius=0.2, p_name=p_name, force=-80) 
+'''
 
+for i in range(16):
     
+    # set particle location, name
+    p_loc = 3*(np.random.random(3) - 0.5) + [0, 0, 5]
+    p_name = 'b_particle_'+str(i).zfill(3)
     
-    # create force field
-    bpy.ops.object.effector_add(
-        type='FORCE',
-        enter_editmode=False,
-        location=p_loc)
-    f_name = 'force_'+str(i).zfill(3)    
-    C.object.name = f_name
-    C.object.field.strength = -80
-    C.object.field.falloff_power = 2
+    # create particle
+    create_force_particle(loc=p_loc, radius=0.2, p_name=p_name, force=-80) 
 
 
-    # deselect all objects
-    bpy.ops.object.select_all(action='DESELECT')
-    # select particle and force field and parent them
-    p = bpy.context.scene.objects.get(p_name)
-    f = bpy.context.scene.objects.get(f_name)
-    p.select_set(True)
-    f.select_set(True)
-    C.view_layer.objects.active = p
-    bpy.ops.object.parent_set(type='OBJECT')
+
 
 
 #particles = [p for p in D.objects if p.name.startswith('particle')]
-
-
-'''
-
-for p in particles:
-    C.view_layer.objects.active = p
-    bpy.ops.rigidbody.object_add()
-    
-    bpy.ops.object.modifier_add(type='SOFT_BODY')
-    bpy.ops.object.modifier_add(type='COLLISION')
-
-    #p.modifier_apply(apply_as='DATA', modifier="Softbody")
-    
-    #add_collision_properties(p, mass=0.1)
-    C.object.collision.friction_factor = 0.2
-    C.object.collision.stickiness = 0.5
-    C.object.collision.damping = 0
-
-
-    C.object.modifiers["Softbody"].settings.pull = 0.999
-    C.object.modifiers["Softbody"].settings.push = 0.999
-    #C.object.modifiers["Softbody"].settings.damping = 1
-    #C.object.modifiers["Softbody"].settings.bend = 10
-    #bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Softbody")
-    
-    bpy.ops.object.forcefield_toggle()
-    C.object.field.strength = 50
-    #C.object.field.use_gravity_falloff = True
-'''
-
-
-
-'''   
-    bpy.ops.object.forcefield_toggle()
-    C.object.field.type = 'FORCE'
-    
-
-
-    C.object.rigid_body.angular_damping = 0.2
-    C.object.field.use_absorption = True
-
-    
-    #p.field.falloff_power = 0
-
-    #p.modifier_add(type='SOFT_BODY')
-    #bpy.ops.object.modifier_add(type='SOFT_BODY')
-    C.object.field.type = 'WIND'
-    C.object.field.strength = 50000
-    C.object.field.falloff_power = 2
-
-'''
-
 
 
 
@@ -306,8 +275,6 @@ for p in particles:
 
 
 mat = make_gas_material((0.8, 0.04, 0.05, 1))
-
-
 
 
 # --------------- ANIMATE PARTICLES ------------------------------------------
@@ -353,7 +320,6 @@ C.scene.frame_end = end_kf
 C.scene.rigidbody_world.steps_per_second = 500
 C.scene.rigidbody_world.solver_iterations = 150
 
-bpy.ops.ptcache.free_bake_all()
 bpy.ops.ptcache.bake_all(bake=True)
 
 
