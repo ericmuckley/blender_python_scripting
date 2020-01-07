@@ -33,21 +33,12 @@ def delete_all_objects_and_materials():
     # select all objects and delete them
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False, confirm=False)
-    
-    
-    for obj in C.scene.objects: 
-        d = obj.data
-        d.users
-        d.user_clear()
-        D.meshes.remove(d)
-    
-    
-    # delete all physics bakes    
-    bpy.ops.ptcache.free_bake_all()
     # delete all materials
     for material in D.materials:
         material.user_clear()
         D.materials.remove(material)
+    # delete all physics bakes    
+    bpy.ops.ptcache.free_bake_all()
 
 
 
@@ -182,7 +173,7 @@ def render(filepath="/home/eric/Desktop/blender_render"):
 
 
 def create_force_particle(loc=(0, 0, 0), radius=1,
-    p_name=None, mat=None, force=0, falloff=2,
+    p_name=None, mat=None, force=0, falloff=2, mass=1,
     lin_damp=0.25, ang_damp=0.25):
     """Create a sphere to simulate a particle with an inherent force.
     Force can be positive or negative (repulsive or attractive) with falloff
@@ -198,6 +189,8 @@ def create_force_particle(loc=(0, 0, 0), radius=1,
     bpy.ops.rigidbody.object_add() 
     C.object.rigid_body.linear_damping = lin_damp
     C.object.rigid_body.angular_damping = ang_damp
+    C.object.rigid_body.mass = mass
+
     
     # add collision properties
     bpy.ops.object.modifier_add(type='COLLISION')
@@ -241,6 +234,8 @@ C.object.name = 'lamp'
 
 set_background(rgb_alpha=(0, 0, 0, -10))
 
+
+
 # ------------------------ INITIALIZE KEYFRAMES ------------------------------
 
 # set start and end keyframes
@@ -253,32 +248,51 @@ current_kf = C.scene.frame_start
 C.scene.frame_set(current_kf)
 
 # set gravitational acceleration vector
-C.scene.gravity = [0, 0, 0]
+bpy.context.scene.use_gravity = False
+bpy.context.scene.use_gravity = True
+C.scene.gravity = [0, 0, -5]
 
 # --------------------- ADD PLANE TO SERVE AS FLOOR --------------------------
 
-boundary_plane(25, name='floor')
+boundary_plane(40, name='floor')
 
 # -------------------------- CREATE PARTICLES --------------------------------
 
-for i in range(16):
-    
+mat1 = make_gas_material((0.8, 0.04, 0.05, 1))
+for i in range(10):
     # set particle location, name
     p_radius = 0.2
     p_loc = np.append(8*(np.random.random(2) - 0.5), [p_radius+0.1])
     p_name = 'particle_'+str(i).zfill(3)
     
     # create particle
-    create_force_particle(loc=p_loc, radius=p_radius, p_name=p_name, force=-80) 
-
-particles = [p for p in D.objects if p.name.startswith('particle')]
-
+    create_force_particle(
+        loc=p_loc, radius=p_radius, p_name=p_name, force=-30, mat=mat1) 
 
 
-# --------------------------- CREATE ATOMS -------------------------------
 
 
-mat = make_gas_material((0.8, 0.04, 0.05, 1))
+
+mat2 = make_gas_material((0.05, 0.05, 0.8, 15))
+for i in range(5):
+    # set particle location, name
+    p_radius = 0.2
+    p_loc = 5*(np.random.random(3) - 0.5) + [0, 0, 80]
+    p_name = 'particle2_'+str(i).zfill(3)
+    
+    # create particle
+    create_force_particle(
+        loc=p_loc, radius=p_radius, p_name=p_name, force=-200, mass=25, mat=mat2) 
+
+
+
+
+
+
+#particles = [p for p in D.objects if p.name.startswith('particle')]
+
+
+
 
 
 # --------------- ANIMATE PARTICLES ------------------------------------------
@@ -312,10 +326,9 @@ for p in particles:
 
 
 
-
-
-
 # -------------------------- PREPARE RENDER ----------------------------------
+
+bpy.ops.ptcache.free_bake_all()
 
 # reset the starting and ending keyframes
 C.scene.frame_start = start_kf
@@ -323,8 +336,11 @@ C.scene.frame_end = end_kf
 # increase rigid body accuracy so objects don't pass through each other
 C.scene.rigidbody_world.steps_per_second = 500
 C.scene.rigidbody_world.solver_iterations = 150
-
 bpy.ops.ptcache.bake_all(bake=True)
 
 
+
 #render()
+
+# DELETE RIGID BODY WORLD AFTER EACH BAKE TO RESET CACHE
+#bpy.ops.rigidbody.world_remove()
